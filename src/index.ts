@@ -2,33 +2,9 @@ import { Hono } from "hono";
 type CloudflareBindings = { AI: Ai };
 
 const app = new Hono<{ Bindings: CloudflareBindings }>();
+
 app.get('/', (c) => {
   return c.redirect('/image-preview'); // ¡Redirección aquí!
-});
-// Endpoint para descargar imagen
-app.get("/image", async (c) => {
-  const prompt: string =
-    c.req.query("prompt") ?? "a sunset over the ocean in a futuristic city";
-
-  const result = await c.env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
-    prompt,
-  });
-
-  const base64Image = result.image;
-  if (typeof base64Image !== "string") {
-    return c.text("Image generation failed or returned unexpected result", 500);
-  }
-
-  const imageBuffer = Uint8Array.from(atob(base64Image), (c) =>
-    c.charCodeAt(0)
-  );
-
-  return new Response(imageBuffer, {
-    headers: {
-      "Content-Type": "image/png",
-      "Content-Disposition": "attachment; filename=flux-image.png",
-    },
-  });
 });
 
 // Endpoint para vista previa en HTML
@@ -53,9 +29,12 @@ app.get("/image-preview", async (c) => {
       .map((result, index) => {
         const base64Image = result.image;
         if (typeof base64Image === "string") {
-          return `
+          return ` 
             <div class="image-box">
               <img src="data:image/png;base64,${base64Image}" alt="Generated Image ${index + 1}" />
+              <div class="button-container">
+                <a href="data:image/png;base64,${base64Image}" download="image${index + 1}.png" class="download-button">Descargar Imagen ${index + 1}</a>
+              </div>
             </div>`;
         }
         return `<p>Error al generar la imagen ${index + 1}</p>`;
@@ -131,11 +110,37 @@ app.get("/image-preview", async (c) => {
       margin-bottom: 2rem;
     }
 
-    .image-box img {
+    .image-box {
+      text-align: center;
       width: 400px;
-      height: auto;
+      background-color: #fff;
+      padding: 20px;
       border-radius: 16px;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .image-box img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+    }
+
+    .button-container {
+      margin-top: 10px;
+    }
+
+    .download-button {
+      display: inline-block;
+      padding: 0.5rem 1.5rem;
+      background-color: #4a90e2;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      transition: background-color 0.3s;
+    }
+
+    .download-button:hover {
+      background-color: #357ab8;
     }
 
     .footer {
@@ -165,8 +170,5 @@ app.get("/image-preview", async (c) => {
 
   return c.html(html);
 });
-
-
-
 
 export default app;
